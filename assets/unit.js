@@ -9,6 +9,22 @@ const store = {
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 };
 const progress = () => store.get(PKEY) || {};
+const HKEY = 'gdu-a1b2-history';
+const history = () => { const h=store.get(HKEY); return Array.isArray(h)?h:[]; };
+const pad = n => String(n).padStart(2,'0');
+const stamp = iso => { const d=new Date(iso); return isNaN(d)?'':`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function logAttempt(res){
+  const h=history(); h.push({u:N,d:new Date().toISOString(),s:res.score,t:res.total,n:(store.get(NKEY)||'').trim()});
+  store.set(HKEY,h.slice(-3000));
+}
+function renderHist(){
+  const el=document.getElementById('hist'); if(!el) return;
+  const h=history().filter(x=>x.u===N).reverse();
+  if(!h.length){ el.innerHTML='<h3>내 풀이 기록</h3><p class="tip">아직 기록이 없어요. 채점하기를 누르면 날짜와 점수가 자동으로 쌓입니다.</p>'; return; }
+  const best=Math.max(...h.map(x=>x.s));
+  el.innerHTML=`<h3>내 풀이 기록 <small>이 Unidad ${h.length}회 · 최고 ${fmt(best)} / ${h[0].t}점</small></h3>
+  <div class="hist-wrap"><table class="hist"><thead><tr><th>회차</th><th>날짜·시간</th><th>점수</th><th>정답률</th></tr></thead><tbody>${h.slice(0,30).map((x,i)=>`<tr><td>${h.length-i}</td><td>${stamp(x.d)}</td><td>${fmt(x.s)} / ${x.t}</td><td>${Math.round(x.s/x.t*100)}%${x.s===best?' ★':''}</td></tr>`).join('')}</tbody></table></div>`;
+}
 const total = () => U.ex.reduce((n,e)=>n+e.items.length,0);
 const fmt = n => (Math.round(n*10)/10).toString();
 
@@ -46,6 +62,7 @@ function chapter(){
     <section class="theory" id="theory">${U.theory}</section>
     ${U.ex.map((e,ei)=>exHTML(e,ei)).join('')}
     <section class="result" id="result" hidden aria-live="polite"></section>
+    <section class="histbox" id="hist"></section>
     <div class="pager">${prev?`<a href="../Unidad${N-1}/">← Unidad ${N-1}</a>`:'<span></span>'}<a href="../">전체 목차</a>${next?`<a href="../Unidad${N+1}/">Unidad ${N+1} →</a>`:'<span></span>'}</div>
   </main>`;
   state.v = state.v || {}; marks.v = marks.v || {};
@@ -135,10 +152,10 @@ function grade(){
     document.getElementById('sc'+ei).textContent=`${fmt(s)} / ${e.items.length}`;
     res.ex.push({title:e.title,s,t:e.items.length}); res.score+=s; res.total+=e.items.length;
   });
-  lastResult=res;
+  lastResult=res; logAttempt(res);
   const pr=progress(); const old=pr['u'+N];
   if(!old||res.score>=old.score){ pr['u'+N]={score:res.score,total:res.total}; store.set(PKEY,pr); }
-  renderResult(true);
+  renderResult(true); renderHist();
 }
 function renderResult(scroll){
   const res=lastResult, pct=Math.round(res.score/res.total*100), name=(store.get(NKEY)||'').trim();
@@ -169,3 +186,4 @@ function retry(all){
   const first=document.querySelector('li.item:not(.ok)'); if(first) first.scrollIntoView({behavior:'smooth',block:'center'}); else window.scrollTo({top:0,behavior:'smooth'});
 }
 chapter();
+renderHist();

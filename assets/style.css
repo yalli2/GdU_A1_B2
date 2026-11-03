@@ -157,3 +157,11 @@ li.item.ok .fb{color:var(--ok)} li.item.bad .fb{color:var(--bad)} li.item.half .
 .ex-nav{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
 .ex-nav a{font-size:.8rem;text-decoration:none;padding:3px 10px;border-radius:99px;background:var(--chip)}
 .tw table td:first-child{white-space:normal}
+
+.histbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-block:24px}
+.histbox h3{font-size:1.1rem}.histbox h3 small{font-family:var(--f-body);font-weight:500;font-size:.82rem;color:var(--muted);margin-left:8px}
+.hist-wrap{overflow-x:auto;margin-top:12px}
+table.hist{width:100%;border-collapse:collapse;font-size:.92rem}
+table.hist th,table.hist td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.hist th{color:var(--muted);font-size:.8rem}
+.hist-act{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}

@@ -7,7 +7,29 @@ const store = {
 };
 const fmt = n => (Math.round(n*10)/10).toString();
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const HKEY = 'gdu-a1b2-history';
+const history = () => { const h=store.get(HKEY); return Array.isArray(h)?h:[]; };
+const pad = n => String(n).padStart(2,'0');
+const stamp = iso => { const d=new Date(iso); return isNaN(d)?'':`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const dayKey = iso => { const d=new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 let query = '', only = 'all';
+function histSection(){
+  const h=history();
+  if(!h.length) return '<section class="histbox"><h3>내 학습 기록</h3><p class="tip">아직 기록이 없어요. 단원을 풀고 채점하면 날짜와 점수가 여기에 계속 쌓입니다.</p></section>';
+  const days=new Set(h.map(x=>dayKey(x.d))), today=dayKey(new Date().toISOString());
+  const nToday=h.filter(x=>dayKey(x.d)===today).length;
+  const rec=h.slice().reverse().slice(0,20);
+  return `<section class="histbox"><h3>내 학습 기록 <small>채점할 때마다 날짜와 점수가 자동으로 쌓입니다</small></h3>
+  <div class="stat"><div><b>${h.length}</b><span>총 풀이 횟수</span></div><div><b>${nToday}</b><span>오늘 푼 횟수</span></div><div><b>${days.size}</b><span>학습한 날</span></div></div>
+  <div class="hist-wrap"><table class="hist"><thead><tr><th>날짜·시간</th><th>단원</th><th>점수</th><th>정답률</th></tr></thead><tbody>${rec.map(x=>{const u=UNITS.find(v=>v.id===x.u);return `<tr><td>${stamp(x.d)}</td><td><a href="Unidad${x.u}/">Unidad ${x.u}</a> <span class="es notranslate" translate="no">${u?esc(u.es):''}</span></td><td>${fmt(x.s)} / ${x.t}</td><td>${Math.round(x.s/x.t*100)}%</td></tr>`}).join('')}</tbody></table></div>
+  <div class="hist-act"><button type="button" class="btn ghost" id="csvBtn">기록 내려받기 (CSV)</button><button type="button" class="btn ghost" id="clrBtn">기록 지우기</button></div></section>`;
+}
+function csv(){
+  const rows=[['이름','날짜','시간','Unidad','점수','만점','정답률(%)']];
+  history().forEach(x=>{const d=new Date(x.d);rows.push([x.n||'',`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,`${pad(d.getHours())}:${pad(d.getMinutes())}`,x.u,x.s,x.t,Math.round(x.s/x.t*100)]);});
+  const t='\ufeff'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'})); a.download='gdu-records.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
 
 function render(){
   const pr = store.get(PKEY) || {}; const name = store.get(NKEY) || '';
@@ -36,6 +58,7 @@ function render(){
       <button type="button" data-f="done" aria-pressed="${only==='done'}">푼 단원</button>
     </div>
     <div id="list"></div>
+    <div id="histMain">${histSection()}</div>
     <footer class="site">교재: Gramática de uso del español. Teoría y práctica, Nivel A1–B2 (L. Aragonés, R. Palencia, SM). 단원 구성은 교재의 목차를 따르며, 문법 정리와 연습문제는 수업용으로 새로 구성했습니다.</footer>
   </main>`;
   $('#stu').addEventListener('input',e=>store.set(NKEY,e.target.value));
@@ -43,10 +66,12 @@ function render(){
   document.querySelectorAll('.tools button').forEach(b=>b.addEventListener('click',()=>{
     only=b.dataset.f; document.querySelectorAll('.tools button').forEach(x=>x.setAttribute('aria-pressed',x===b)); list();
   }));
+  const cb=$('#csvBtn'); if(cb) cb.onclick=csv;
+  const rb=$('#clrBtn'); if(rb) rb.onclick=()=>{ if(confirm('모든 풀이 기록(날짜·점수)을 지울까요? 되돌릴 수 없습니다.')){ store.set(HKEY,[]); $('#histMain').innerHTML=histSection(); } };
   list();
 }
 function list(){
-  const pr = store.get(PKEY) || {};
+  const pr = store.get(PKEY) || {}; const hh=history();
   const q = query.trim().toLowerCase();
   let html = '', shown = 0;
   GROUPS.forEach(g=>{
@@ -68,6 +93,7 @@ function list(){
         <div class="desc">${esc(u.desc)}</div>
         <div class="bar"><i style="width:${p?p.score/p.total*100:0}%"></i></div>
         <div class="meta"><span>${u.n}문제</span><span>${p?`최고 ${fmt(p.score)} / ${p.total}점`:'아직 풀지 않음'}</span></div>
+        ${(()=>{const a=hh.filter(x=>x.u===u.id);return a.length?`<div class="meta"><span>${a.length}회 풀이</span><span>최근 ${stamp(a[a.length-1].d).slice(0,10)}</span></div>`:''})()}
         <span class="go">학습하기 →</span>
       </a>`;}).join('')}</div>`;
   });
